@@ -1,23 +1,96 @@
-﻿using System.Security.Claims;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Pruebav3.Data;
+using Pruebav3.Models;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
-namespace JWT.Services.UserService
+namespace Pruebav3.Services.AuthRepository
 {
     public class UserService : IUserService
     {
-        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly DataContext _context;
+        private readonly IConfiguration _configuration;
 
-        public UserService(IHttpContextAccessor httpContextAccessor)
+        public UserService(DataContext context, IConfiguration configuration)
         {
-            _httpContextAccessor = httpContextAccessor;
+            _context = context;
+            _configuration = configuration;
         }
-        public string GetMyName()
+        public async Task<bool> Existente(string name)
         {
-            var result = string.Empty;
-            if(_httpContextAccessor.HttpContext != null)
+            if (await _context.User.AnyAsync(u => u.Name.ToLower() == name.ToLower()))
             {
-                result = _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.Name);
+                return true;
             }
-            return result;
+            return false;
         }
+
+        public async Task Login(string name, string password)
+        {
+            var user = await _context.User.FirstOrDefaultAsync(u => u.Name.ToLower().Equals(name.ToLower()));
+
+            if(VerificarPasswordHash(password, user.PasswordHash, user.PasswordSalt))
+            {
+                CrearToken(user);
+            }
+        }
+
+        public async Task Registro(User name, string password)
+        {
+            CrearPasswordHash(password, out byte[] passwordHash, out byte[] passwordSalt);
+
+            name.PasswordHash = passwordHash;
+            name.PasswordSalt = passwordSalt;
+
+            _context.User.Add(name);
+            await _context.SaveChangesAsync();
+        }
+
+        private void CrearPasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt)
+        {
+            using (var hmac = new System.Security.Cryptography.HMACSHA256())
+            {
+                passwordSalt = hmac.Key;
+                passwordHash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
+            }
+        }
+
+        private bool VerificarPasswordHash(string password, byte[] passwordHash, byte[] passwordSalt)
+        {
+            using (var hmac = new System.Security.Cryptography.HMACSHA256(passwordSalt))
+            {
+                var computeHash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
+                return computeHash.SequenceEqual(passwordHash);
+            }
+        }
+
+        private string CrearToken(User consumidor)
+        {
+            List<Claim> claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.NameIdentifier, consumidor.IdUser.ToString()),
+                new Claim(ClaimTypes.Name, consumidor.Name)
+            };
+
+            SymmetricSecurityKey key = new SymmetricSecurityKey(System.Text.Encoding.UTF8
+                .GetBytes(_configuration.GetSection("AppSettings:Token").Value));
+
+            SigningCredentials creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256Signature);
+
+            SecurityTokenDescriptor tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(claims),
+                Expires = DateTime.Now.AddDays(1),
+                SigningCredentials = creds
+            };
+
+            JwtSecurityTokenHandler tokenHandler = new JwtSecurityTokenHandler();
+            SecurityToken token = tokenHandler.CreateToken(tokenDescriptor);
+
+            return tokenHandler.WriteToken(token);
+        }
+
+        
     }
 }

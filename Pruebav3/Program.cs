@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Pruebav3.Data;
+using Pruebav3.Services.AuthRepository;
 using Swashbuckle.AspNetCore.Filters;
 using System.Text;
 
