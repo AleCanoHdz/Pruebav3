@@ -25,19 +25,19 @@ namespace Pruebav3.Controllers
         }
 
         [HttpPost("registro")]
-        public async Task<ActionResult<int>> Registro(UserDto request)
+        public async Task<ActionResult<ServiceResponse<int>>> Registro(UserDto request)
         {
-            await _userService.Registro(new User { Name = request.Name }, request.Password);
+            var log = await _userService.Registro(new Login { Name = request.Name }, request.Password);
 
-            return Ok(request);
+            return Ok(log);
         }
 
         [HttpPost("login")]
         public async Task<ActionResult<string>> Login(UserDto request)
         {
-            await _userService.Login(request.Name, request.Password);
+            var log = await _userService.Login(request.Name, request.Password);
             
-            return Ok(request);
+            return Ok(log);
         }
     }
 }

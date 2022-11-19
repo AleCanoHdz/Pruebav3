@@ -29,5 +29,7 @@ namespace Pruebav3.Data
         public DbSet<Pruebav3.Models.UserAnswer> UserAnswer { get; set; }
 
         public DbSet<Pruebav3.Models.UserRole> UserRole { get; set; }
+
+        public DbSet<Pruebav3.Models.Login> Login { get; set; }
     }
 }

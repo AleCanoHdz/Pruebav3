@@ -19,32 +19,67 @@ namespace Pruebav3.Services.AuthRepository
         }
         public async Task<bool> Existente(string name)
         {
-            if (await _context.User.AnyAsync(u => u.Name.ToLower() == name.ToLower()))
+            if (await _context.Login.AnyAsync(u => u.Name.ToLower() == name.ToLower()))
             {
                 return true;
             }
             return false;
         }
 
-        public async Task Login(string name, string password)
+        public async Task<ServiceResponse<string>> Login(string name, string password)
         {
-            var user = await _context.User.FirstOrDefaultAsync(u => u.Name.ToLower().Equals(name.ToLower()));
+            //var user = await _context.Login.FirstOrDefaultAsync(u => u.Name.ToLower().Equals(name.ToLower()));
 
-            if(VerificarPasswordHash(password, user.PasswordHash, user.PasswordSalt))
+            //if(VerificarPasswordHash(password, user.PasswordHash, user.PasswordSalt))
+            //{
+            //    CrearToken(user);
+            //}
+
+
+            var response = new ServiceResponse<string>();
+            var user = await _context.Login.FirstOrDefaultAsync(u => u.Name.ToLower().Equals(name.ToLower()));
+
+            if (user == null)
             {
-                CrearToken(user);
+                response.Success = false;
+                response.Message = "Usuario no encontrado";
             }
+            else if (!VerificarPasswordHash(password, user.PasswordHash, user.PasswordSalt))
+            {
+                response.Success = false;
+                response.Message = "Contraseña erronea";
+            }
+            else
+            {
+                response.Data = CrearToken(user);
+            }
+
+            return response;
         }
 
-        public async Task Registro(User name, string password)
+        public async Task<ServiceResponse<int>> Registro (Login name, string password)
         {
+            //CrearPasswordHash(password, out byte[] passwordHash, out byte[] passwordSalt);
+
+            //name.PasswordHash = passwordHash;
+            //name.PasswordSalt = passwordSalt;
+
+            //_context.Login.Add(name);
+            //await _context.SaveChangesAsync();
+
+
+            ServiceResponse<int> response = new ServiceResponse<int>();
+
             CrearPasswordHash(password, out byte[] passwordHash, out byte[] passwordSalt);
 
             name.PasswordHash = passwordHash;
             name.PasswordSalt = passwordSalt;
 
-            _context.User.Add(name);
+            _context.Login.Add(name);
             await _context.SaveChangesAsync();
+            response.Data = name.IdLog;
+            return response;
+
         }
 
         private void CrearPasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt)
@@ -65,12 +100,12 @@ namespace Pruebav3.Services.AuthRepository
             }
         }
 
-        private string CrearToken(User consumidor)
+        private string CrearToken(Login log)
         {
             List<Claim> claims = new List<Claim>
             {
-                new Claim(ClaimTypes.NameIdentifier, consumidor.IdUser.ToString()),
-                new Claim(ClaimTypes.Name, consumidor.Name)
+                new Claim(ClaimTypes.NameIdentifier, log.IdLog.ToString()),
+                new Claim(ClaimTypes.Name, log.Name)
             };
 
             SymmetricSecurityKey key = new SymmetricSecurityKey(System.Text.Encoding.UTF8
@@ -81,7 +116,7 @@ namespace Pruebav3.Services.AuthRepository
             SecurityTokenDescriptor tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.Now.AddDays(1),
+                Expires = DateTime.Now.AddDays(30),
                 SigningCredentials = creds
             };
 

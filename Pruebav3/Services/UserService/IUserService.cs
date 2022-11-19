@@ -4,8 +4,8 @@ namespace JWT.Services.UserService
 {
     public interface IUserService
     {
-        Task Registro(User Name, string password);
-        Task Login(string Name, string password);
+        Task<ServiceResponse<int>> Registro(Login Name, string password);
+        Task<ServiceResponse<string>> Login(string Name, string password);
         Task<bool> Existente(string consumidor);
     }
 }
